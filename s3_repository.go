@@ -144,6 +144,7 @@ func (r *Repo) DownloadFile(name string) error {
 		return err
 	}
 	defer output.Close()
+	fmt.Println("Fetching "+name)
 	resp, err := http.Get(bucket_url + name)
 	if err != nil {
 		return err
@@ -161,12 +162,21 @@ func (r *Repo) DownloadFile(name string) error {
 func (r *Repo) DownloadImage(path string) error {
 	parts := strings.Split(path, "/")
 	if len(parts) < 2 {
-		errors.New(fmt.Sprintf("%s: wrong name format", path))
+		return errors.New(fmt.Sprintf("%s: wrong name format", path))
 	}
+	createDir := true
 	q := QueryRemote()
+	var err error
 	for _, content := range q.ContentsList {
-		if strings.HasPrefix(content.Key+"/", path) && content.Size > 0 {
-			r.DownloadFile(content.Key)
+		if strings.HasPrefix(content.Key, path+"/") && content.Size > 0 {
+			if createDir {
+				os.MkdirAll(filepath.Join(r.Path,path), os.ModePerm)
+				createDir = false
+			}
+			err = r.DownloadFile(content.Key)
+			if err != nil {
+				fmt.Println(err)
+			}
 		}
 	}
 	return nil
@@ -175,7 +185,7 @@ func (r *Repo) DownloadImage(path string) error {
 func IsRemoteImage(name string) bool {
 	q := QueryRemote()
 	for _, content := range q.ContentsList {
-		if content.Key == name+"/" {
+		if strings.HasPrefix(content.Key, name+"/") {
 			return true
 		}
 	}
